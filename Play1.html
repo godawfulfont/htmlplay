@@ -1,0 +1,79 @@
+<link rel="stylesheet" href="style_play1.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet">
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Goober</title>
+  <body  style="background: #fbfcff; text-align: justify; margin-left: 1em; margin-right: 1em; max-width: 50em">
+    <h2>Virtual Machine Storage Management</h2>
+<p/>
+The normal and maximum storage sizes of a virtual machine are defined as part of the virtual machine configuration in the directory. The user can redefine virtual storage size to any value that is a multiple of 4K and not greater than the maximum defined value. VM/SP HPO implements this storage as virtual storage. The storage may appear as paged or not paged to the virtual machine, depending upon whether or not the extended control mode option was specified for that virtual machine. This option is required if operating systems that control virtual storage, such as OS/VS1, VM/SP HPO, or VM/370, are run in the virtual machine.
+<p/>
+Storage in the virtual machine is logically divided into 4096-byte areas called pages. Contiguous 64K areas of virtual storage are called segments. A complete set of segment and page tables is used to describe the storage of each virtual machine. These tables are updated by CP and reflect the allocation of virtual storage pages to blocks of real storage. These page and segment tables allow virtual storage addressing in a System/370 machine. Storage in the real machine is logically and physically divided into 4096-byte areas called page frames.
+<p/>
+If the virtual machine is executing in extended control mode with translate on, then two additional sets of segment and page tables are kept. The virtual machine operating system is responsible for mapping the virtual storage created by it to the storage of the virtual machine. CP uses this set of tables in conjunction with the page and segment tables created for the virtual machine at logon time to build shadow page tables for the virtual machine. These shadow tables map the virtual storage created by the virtual machine operating system to the storage of the real computing system. The tables created by the virtual machine operating system may describe any page and segment size permissible in the IBM System/370.
+<p/>
+When there is a shortage of real storage available, CP keeps only referenced virtual storage pages in real storage. CP can bring pages into any available page frames. During program execution, a combination of CP and dynamic address translation on the System/370 relocates a page. (During relocation, new absolute addresses are assigned to a page so that the program can execute in the assigned area of real storage.) The active pages from all logged-on virtual machines and from the pageable routines of CP compete for available page frames. When the number of page frames available for allocation falls below a threshold value, CP determines which virtual storage pages currently allocated to real storage are relatively inactive, and starts page-out operations for them.
+Inactive pages are kept on a direct access storage device (DASD). DASD space is managed so that only one copy of a given page exists at one time. CP assigns certain inactive pages to a paging device according to the following rules:
+    <p/>
+    <ul>
+      <li>
+        If the page was referenced during virtual machine execution, and if space is available in a TYPE=SW area, the page is assigned to that area (regardless of whether or not the page was changed during virtual machine execution).
+      </li>
+      <li>
+If the page was referenced and changed during virtual machine execution, and no space is available in a TYPE = SW area, the page is assigned a TYPE = PP area.
+      </li>
+      <li>
+If the page was changed during virtual machine execution but not referenced, it is assigned to a TYPE=PP area.
+      </li>
+      <li>
+Note: If a page is read in from TYPE=SW, it is marked as "changed" because the backup copy in the TYPE=SW area is released once the page is read in.
+      </li>
+    </ul>
+</p>
+(See the heading "DASD and Paging Storage Management" for more information.)
+<p/>
+A virtual machine program can use the DIAGNOSE instruction to tell CP that the information from specific pages of virtual storage is no longer needed. CP then releases the DASD areas that were assigned to hold the specified pages.
+<p/>
+CP can prepage a number of virtual machine pages that were resident and referenced at the last queue drop. It prepages when a virtual machine is added to queue.
+<p/>
+When a page fault is resolved for a page in a swap set, all the pages in the swap set are paged in. While CP is paging for one virtual machine, another virtual machine can be executing. Any paging operation started by CP is transparent to the virtual machine.
+<pre>
+  +-----------------+--------------------+-----------------------------------------------+
+  | Column 1        | Column 2           | Column 3                                      |
+  +-----------------+--------------------+-----------------------------------------------+
+  | Wait            | Enabled CP wait    | The processor console light is on, but the    |
+  |                 |                    | system accepts interrupts from I/O devices.   |
+  +-----------------+--------------------+-----------------------------------------------+
+</pre>
+<p/>
+<table>
+  <tr>
+    <th>Column&nbsp;1</th>
+    <th>Column 2</th>
+    <th>Column 3</th>
+  </tr>
+  <tr>
+    <td>Wait</td>
+    <td>Enabled CP wait</td>
+    <td>The processor console light is on, but the system accepts interrupts from I/O devices.</td>
+  </tr>
+</table>
+</p>  
+<h2>Storage and Processor Utilization</h2>
+<p/>
+The system operator can assign reserved page frames to multiple virtual machines by using the SET RESERVE command. This command assigns to a virtual machine a specific amount of storage from the real machine, enabling the specified number of a virtual machine's active pages to remain in real storage. CP will dynamically build up a set of reserved real storage page frames for a virtual machine during its execution until the maximum number of reserved frames is reached. The page frames that are reserved are defined by core table scan, so that referenced pages are more likely to be held in storage than unreferenced pages. See the VMjSP HPO Operator's Guide for more information on the SET RESERVE command.
+<p/>
+During CP system generation, the installation may specify an option called virtual=real. With this option, the virtual machine's storage is allocated directly from real storage at the time the virtual machine logs on (if it has the VIRT = REAL option in its directory). All pages except page zero are allocated to the corresponding real storage locations. In order to control the real computing system, real page zero must be controlled by CP. Consequently, the real storage size must be large enough to accommodate the CP nucleus, the entire virtual = real virtual machine, and the remaining pageable storage requirements of CP and the other virtual machines.
+<p/>
+The virtual = real option improves performance in the selected virtual machine since it removes the need for CP paging operations for the selected virtual machine. The virtual = real option is necessary whenever programs that contain dynamically modified channel programs (except those of OS' ISAM and OS/VS TCAM Level 5) are to execute under control of CPo For additional information on running systems with dynamically modified channel programs, see the VM/SP HPO CP for System Programming.
+</br></br>
+<h2>Virtual Storage Preservation</h2>
+<p/>
+CP tries to preserve the contents of a virtual machine if the system operator forces the machine off the system, if the system abnormally terminates the machine, or if the system itself abnormally terminates.
+At system generation time, you can specify which virtual machines are to be saved. The contents of these virtual machines are written out and saved in DASD space that must be previously allocated during system generation; the sequence in which virtual machines are saved can also be established. If a sequence for saving systems is not defined, then the systems are saved in the order in which virtual storage preservation was invoked for each. After the user logs on to the system again, the saved DASD area is restored by issuing the IPL command, specifying the name of the defined DASD area. System generation parameters also allow another designated user to IPL the named SAVESYS area.
+  </body>
+</html>
